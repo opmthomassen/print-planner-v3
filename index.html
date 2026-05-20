@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Print Planner — Festiviteten</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0c0c12;
+      --bg2:     #12121a;
+      --bg3:     #181820;
+      --bg4:     #1e1e28;
+      --bg5:     #22222e;
+      --border:  #23233a;
+      --border2: #2e2e48;
+      --text:    #e0e0f4;
+      --text2:   #8080b0;
+      --text3:   #50508a;
+
+      --h-col:    #5b8aff;
+      --h-bg:     rgba(91,138,255,.11);
+      --h-border: rgba(91,138,255,.28);
+
+      --p-col:    #48c97a;
+      --p-bg:     rgba(72,201,122,.11);
+      --p-border: rgba(72,201,122,.28);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      font-size: 13px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 52px;
+      display: flex; align-items: center; gap: 10px;
+      flex-shrink: 0;
+    }
+    .logo { font-weight: 700; font-size: 14px; letter-spacing: -.3px; white-space: nowrap; }
+    .logo span { color: var(--text3); font-weight: 400; margin-left: 6px; font-size: 12px; }
+    .spacer { flex: 1; }
+
+    .pill {
+      display: flex; align-items: center; gap: 4px;
+      background: var(--bg3); border: 1px solid var(--border2);
+      border-radius: 20px; padding: 3px 10px;
+      font-size: 11px; color: var(--text2); white-space: nowrap;
+    }
+    .pill strong { font-weight: 600; }
+    .pill-h strong { color: var(--h-col); }
+    .pill-p strong { color: var(--p-col); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 6px 13px; border-radius: 7px;
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      border: 1px solid transparent; transition: all .15s;
+      white-space: nowrap; line-height: 1;
+    }
+    .btn:disabled { opacity: .3; cursor: not-allowed; }
+    .btn-ghost { background: transparent; border-color: var(--border2); color: var(--text2); }
+    .btn-ghost:hover:not(:disabled) { background: var(--bg3); color: var(--text); }
+    .btn-2 { background: var(--h-bg); border-color: var(--h-border); color: var(--h-col); }
+    .btn-2:hover:not(:disabled) { background: rgba(91,138,255,.2); }
+    .btn-4 { background: var(--p-bg); border-color: var(--p-border); color: var(--p-col); }
+    .btn-4:hover:not(:disabled) { background: rgba(72,201,122,.2); }
+    .btn-exp-h { background: var(--h-col); border-color: var(--h-col); color: #fff; }
+    .btn-exp-h:hover:not(:disabled) { background: #4a78f0; }
+    .btn-exp-p { background: var(--p-col); border-color: var(--p-col); color: #fff; }
+    .btn-exp-p:hover:not(:disabled) { background: #38b568; }
+    .btn-exp-all { background: #7c5cbf; border-color: #7c5cbf; color: #fff; }
+    .btn-exp-all:hover:not(:disabled) { background: #6a4aad; }
+    .btn-assign-all { background: rgba(255,220,80,.12); border-color: rgba(255,220,80,.4); color: #ffd840; }
+    .btn-assign-all:hover:not(:disabled) { background: rgba(255,220,80,.22); }
+
+    /* ── Progress ── */
+    .progress { height: 2px; background: var(--border); flex-shrink: 0; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--h-col), var(--p-col)); transition: width .3s; }
+
+    /* ── Layout ── */
+    .main { flex: 1; display: flex; overflow: hidden; }
+
+    .layout-panel {
+      flex: 1; overflow-y: auto;
+      padding: 24px 20px;
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+    }
+    .layout-panel::-webkit-scrollbar { width: 5px; }
+    .layout-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    .layout-inner { width: 100%; max-width: 700px; display: flex; flex-direction: column; gap: 16px; }
+
+    /* ── Queue panel ── */
+    .queue-panel {
+      width: 280px; flex-shrink: 0;
+      border-left: 1px solid var(--border);
+      background: var(--bg2);
+      display: flex; flex-direction: column;
+    }
+    .q-hdr {
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .6px; color: var(--text3);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .q-badge {
+      background: var(--bg3); border: 1px solid var(--border2);
+      border-radius: 10px; padding: 1px 7px;
+      font-size: 11px; color: var(--text2); font-weight: 600;
+    }
+    .q-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 3px; }
+    .q-list::-webkit-scrollbar { width: 4px; }
+    .q-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .q-actions { padding: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+    .q-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .4px; }
+    .q-row { display: flex; gap: 5px; }
+    .q-row .btn { flex: 1; justify-content: center; }
+
+    .q-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border-radius: 7px; border: 1px solid transparent;
+    }
+    .q-item-first { background: var(--bg3); border-color: var(--border2); margin-bottom: 3px; }
+    .q-hl-2-0 { background: rgba(91,138,255,.08); }
+    .q-hl-2-1 { background: rgba(91,138,255,.04); }
+    .q-hl-4-0 { background: rgba(72,201,122,.10); }
+    .q-hl-4-1 { background: rgba(72,201,122,.07); }
+    .q-hl-4-2 { background: rgba(72,201,122,.05); }
+    .q-hl-4-3 { background: rgba(72,201,122,.03); }
+    .q-num { font-size: 10px; color: var(--text3); width: 18px; text-align: right; flex-shrink: 0; }
+    .q-info { flex: 1; min-width: 0; }
+    .q-title { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .q-date { font-size: 11px; color: var(--text); margin-top: 1px; }
+
+    /* ── Spread (open brochure) ── */
+    .spread {
+      width: 100%;
+      border-radius: 11px; overflow: hidden;
+      border: 1px solid var(--border2);
+      background: var(--bg2);
+      box-shadow: 0 2px 16px rgba(0,0,0,.25);
+    }
+    .spread-hdr {
+      padding: 8px 13px;
+      display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .spread-hdr-2 { background: var(--h-bg); }
+    .spread-hdr-4 { background: var(--p-bg); }
+    .spread-badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+    .spread-badge-2 { color: var(--h-col); }
+    .spread-badge-4 { color: var(--p-col); }
+    .spread-pages-lbl { font-size: 11px; color: var(--text3); margin-left: auto; }
+    .remove-btn {
+      background: transparent; border: 1px solid var(--border2);
+      border-radius: 5px; color: var(--text3);
+      width: 22px; height: 22px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 300; line-height: 1;
+      transition: all .15s; flex-shrink: 0;
+    }
+    .remove-btn:hover { background: rgba(200,60,60,.15); border-color: #804040; color: #e06060; }
+
+    /* ── Spread body ── */
+    .spread-body { background: var(--bg3); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+    /* ── Month nav ── */
+    .month-nav {
+      width: 96px; flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      background: var(--bg2);
+      display: flex; flex-direction: column; align-items: flex-start;
+      padding: 24px 0; gap: 2px;
+      overflow-y: auto; overflow-x: hidden;
+    }
+    .month-nav::-webkit-scrollbar { display: none; }
+    .month-nav-item {
+      font-size: 12px; font-weight: 500;
+      text-transform: capitalize;
+      color: var(--text3);
+      padding: 3px 14px;
+      transition: font-size .2s, color .2s, font-weight .2s, padding .2s;
+      white-space: nowrap; line-height: 1.7;
+      cursor: pointer; text-decoration: none; display: block;
+    }
+    .month-nav-item:hover { color: var(--text2); }
+    .month-nav-active {
+      font-size: 16px; font-weight: 700;
+      color: var(--text); padding-left: 12px;
+    }
+
+    /* ── Full-page card (1x) ── */
+    .full-card {
+      flex: 1;
+      display: flex; flex-direction: column;
+      background: var(--bg4); border-radius: 8px; overflow: hidden;
+    }
+    .full-card-img {
+      width: 100%; aspect-ratio: 4/3;
+      object-fit: cover; display: block; background: var(--bg5);
+      flex-shrink: 0;
+    }
+    .full-card-img-ph {
+      width: 100%; aspect-ratio: 4/3; background: var(--bg5);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 40px; color: var(--text3); flex-shrink: 0;
+    }
+    .full-card-body { padding: 10px; flex: 1; }
+    .full-card-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; line-height: 1.3; }
+    .full-card-sub { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+    .full-card-date { font-size: 11px; color: var(--text); }
+
+    /* Empty full-page slot */
+    .empty-full {
+      flex: 1; min-height: 160px;
+      background: var(--bg4); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px dashed var(--border2);
+      font-size: 12px; color: var(--text3); text-align: center; line-height: 1.6;
+    }
+
+    /* ── Half-page card (2x slot) ── */
+    .half-card {
+      display: flex; align-items: flex-start; gap: 11px;
+      padding: 10px 11px; border-radius: 7px;
+      background: var(--bg4);
+    }
+    .half-card-img {
+      width: 96px; aspect-ratio: 4/3; border-radius: 5px;
+      object-fit: cover; flex-shrink: 0; background: var(--bg5);
+    }
+    .half-card-img-ph {
+      width: 96px; aspect-ratio: 4/3; border-radius: 5px; flex-shrink: 0;
+      background: var(--bg5); display: flex; align-items: center;
+      justify-content: center; font-size: 28px; color: var(--text3);
+    }
+    .half-card-info { flex: 1; min-width: 0; }
+    .half-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .half-sub { font-size: 11px; color: var(--text2); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .half-date { font-size: 11px; color: var(--text); margin-top: 3px; }
+
+    /* Empty half-page slot */
+    .empty-half {
+      display: flex; align-items: center; justify-content: center;
+      padding: 12px; border-radius: 7px;
+      border: 2px dashed var(--border2);
+      font-size: 11px; color: var(--text3);
+      min-height: 54px;
+    }
+
+    /* ── Upload ── */
+    .upload-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
+    .upload-zone {
+      border: 2px dashed var(--border2); border-radius: 14px;
+      padding: 60px 80px; text-align: center; cursor: pointer;
+      transition: all .2s; max-width: 480px;
+    }
+    .upload-zone:hover, .upload-zone.drag { border-color: var(--h-col); background: var(--h-bg); }
+    .upload-zone h2 { font-size: 20px; margin-bottom: 8px; }
+    .upload-icon { font-size: 48px; margin-bottom: 14px; }
+    .upload-zone p { font-size: 12px; color: var(--text3); margin-top: 6px; }
+
+    /* ── Done ── */
+    .done-banner {
+      background: linear-gradient(135deg, var(--p-bg), var(--h-bg));
+      border: 1px solid var(--border2); border-radius: 11px;
+      padding: 22px; text-align: center; width: 100%;
+    }
+    .done-banner h3 { font-size: 15px; margin-bottom: 6px; }
+    .done-banner p { font-size: 12px; color: var(--text2); }
+
+    .empty-state { padding: 40px; text-align: center; color: var(--text3); font-size: 12px; line-height: 1.8; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useCallback, useMemo, useRef } = React;
+
+/* ── CSV parsing ── */
+function parseLine(line, sep) {
+  const fields = []; let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+    else if (c === sep && !inQ) { fields.push(cur.trim()); cur = ''; }
+    else cur += c;
+  }
+  fields.push(cur.trim()); return fields;
+}
+
+function splitRecords(text) {
+  const records = []; let cur = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') { if (inQ && text[i+1] === '"') { cur += '""'; i++; } else { inQ = !inQ; cur += c; } }
+    else if (c === '\n' && !inQ) { if (cur.trim()) records.push(cur); cur = ''; }
+    else cur += c;
+  }
+  if (cur.trim()) records.push(cur); return records;
+}
+
+function detectSep(h) {
+  let s = 0, c = 0, inQ = false;
+  for (const ch of h) { if (ch === '"') inQ = !inQ; else if (!inQ) { if (ch===';') s++; else if (ch===',') c++; } }
+  return c > s ? ',' : ';';
+}
+
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const records = splitRecords(text);
+  if (records.length < 2) return { headers: [], rows: [], sep: ';' };
+  const sep = detectSep(records[0]);
+  const headers = parseLine(records[0], sep);
+  const rows = records.slice(1).map(rec => {
+    const vals = parseLine(rec, sep);
+    const obj = {}; headers.forEach((h, i) => { obj[h] = vals[i] ?? ''; }); return obj;
+  }).filter(r => r['Tittel']?.trim());
+  return { headers, rows, sep };
+}
+
+/* ── CSV export ── */
+function esc(v) {
+  const s = String(v ?? '').replace(/\r?\n/g, ' ');
+  return (s.includes(';') || s.includes(',') || s.includes('"'))
+    ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function buildCSV(headers, rows, sep = ';') {
+  return [headers.join(sep), ...rows.map(r => headers.map(h => esc(r[h])).join(sep))].join('\n');
+}
+async function download(filename, content, dirHandle) {
+  // UTF-16 LE with BOM
+  const buf = new ArrayBuffer(2 + content.length * 2);
+  const view = new DataView(buf);
+  view.setUint16(0, 0xFEFF, true); // BOM
+  for (let i = 0; i < content.length; i++)
+    view.setUint16(2 + i * 2, content.charCodeAt(i), true);
+  if (dirHandle) {
+    const fh = await dirHandle.getFileHandle(filename, { create: true });
+    const w  = await fh.createWritable();
+    await w.write(new Blob([buf], { type: 'text/csv;charset=utf-16le' }));
+    await w.close();
+  } else {
+    const blob = new Blob([buf], { type: 'text/csv;charset=utf-16le' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+}
+
+/* ── Image ── */
+function Img({ src, className, placeholderCls, placeholderSize = 24 }) {
+  const [err, setErr] = useState(false);
+  if (!src || err) return <div className={placeholderCls} style={{ fontSize: placeholderSize }}>🎭</div>;
+  return <img src={src} className={className} onError={() => setErr(true)} />;
+}
+
+/* ── Full-page card (2stk slot) ── */
+function FullCard({ arr }) {
+  if (!arr) return <div className="empty-full">Tom side</div>;
+  const img = arr['BildeURL'] || arr['@image'] || '';
+  return (
+    <div className="full-card">
+      <Img src={img} className="full-card-img" placeholderCls="full-card-img-ph" placeholderSize={40} />
+      <div className="full-card-body">
+        <div className="full-card-title">{arr['Tittel']}</div>
+        {arr['Undertittel'] && <div className="full-card-sub">{arr['Undertittel']}</div>}
+        <div className="full-card-date">{arr['Dato']}{arr['Klokkeslett'] ? ` · ${arr['Klokkeslett']}` : ''}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Half-page card (4stk slot) ── */
+function HalfCard({ arr }) {
+  if (!arr) return <div className="empty-half">Tom</div>;
+  const img = arr['BildeURL'] || arr['@image'] || '';
+  return (
+    <div className="half-card">
+      <Img src={img} className="half-card-img" placeholderCls="half-card-img-ph" placeholderSize={22} />
+      <div className="half-card-info">
+        <div className="half-title">{arr['Tittel']}</div>
+        {arr['Undertittel'] && <div className="half-sub">{arr['Undertittel']}</div>}
+        <div className="half-date">{arr['Dato']}{arr['Klokkeslett'] ? ` · ${arr['Klokkeslett']}` : ''}</div>
+      </div>
+    </div>
+  );
+}
+
+function getMonth(dato) {
+  if (!dato) return '';
+  const m = String(dato).trim().match(/([a-zA-ZæøåÆØÅ]+)$/);
+  return m ? m[1] : '';
+}
+
+/* ── Block card ── */
+function Spread({ block, idx, onRemove }) {
+  const is1x = block.type === '1x';
+  const [a, b] = block.items;
+  return (
+    <div className="spread">
+      <div className={`spread-hdr ${is1x ? 'spread-hdr-2' : 'spread-hdr-4'}`}>
+        <span className={`spread-badge ${is1x ? 'spread-badge-2' : 'spread-badge-4'}`}>
+          {is1x ? '▬  Halvside 1x' : '▬ ▬  Halvside 2x'}
+        </span>
+        <button className="remove-btn" onClick={() => onRemove(idx)} title="Fjern oppslag">×</button>
+      </div>
+      <div className="spread-body">
+        {is1x ? <FullCard arr={a} /> : <><HalfCard arr={a} /><HalfCard arr={b} /></>}
+      </div>
+    </div>
+  );
+}
+
+/* ── Month nav ── */
+function MonthNav({ months, active, onMonthClick }) {
+  return (
+    <div className="month-nav">
+      {months.map(m => (
+        <a key={m} className={`month-nav-item${m === active ? ' month-nav-active' : ''}`}
+          onClick={() => onMonthClick(m)}>{m}</a>
+      ))}
+    </div>
+  );
+}
+
+/* ── Queue item ── */
+function QItem({ arr, idx, hlCls }) {
+  const img = arr['BildeURL'] || arr['@image'] || '';
+  const [err, setErr] = useState(false);
+  return (
+    <div className={`q-item ${idx === 0 ? 'q-item-first' : ''} ${hlCls}`}>
+      <span className="q-num">{idx + 1}</span>
+      {!img || err
+        ? <div style={{ width: idx===0?40:34, aspectRatio:'4/3', borderRadius: 5, background: 'var(--bg5)', display:'flex', alignItems:'center', justifyContent:'center', fontSize: 16, color:'var(--text3)', flexShrink:0 }}>🎭</div>
+        : <img src={img} onError={() => setErr(true)} style={{ width: idx===0?40:34, aspectRatio:'4/3', borderRadius: 5, objectFit:'cover', flexShrink:0, background:'var(--bg5)' }} />
+      }
+      <div className="q-info">
+        <div className="q-title">{arr['Tittel']}</div>
+        <div className="q-date">{arr['Dato']}{arr['Klokkeslett'] ? ` · ${arr['Klokkeslett']}` : ''}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Uploader ── */
+function Uploader({ onLoad }) {
+  const [drag, setDrag] = useState(false);
+  const ref = useRef();
+  const handleFile = useCallback((file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const buf = e.target.result;
+        const bytes = new Uint8Array(buf);
+        let enc = 'utf-8';
+        if (bytes[0]===0xFF && bytes[1]===0xFE) enc = 'utf-16le';
+        else if (bytes[0]===0xFE && bytes[1]===0xFF) enc = 'utf-16be';
+        const text = new TextDecoder(enc).decode(buf);
+        const parsed = parseCSV(text);
+        if (!parsed.rows.length) { alert('Fant ingen arrangement i CSV-filen.'); return; }
+        onLoad(parsed);
+      } catch(err) { alert('Kunne ikke lese CSV: ' + err.message); }
+    };
+    reader.readAsArrayBuffer(file);
+  }, [onLoad]);
+  return (
+    <div className="upload-wrap">
+      <div className={`upload-zone ${drag ? 'drag' : ''}`}
+        onClick={() => ref.current.click()}
+        onDragOver={e => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={e => { e.preventDefault(); setDrag(false); handleFile(e.dataTransfer.files[0]); }}>
+        <div className="upload-icon">📋</div>
+        <h2>Last opp CSV</h2>
+        <p>Klikk eller dra og slipp hit</p>
+        <p>UTF-8 og UTF-16 · komma eller semikolon</p>
+      </div>
+      <input ref={ref} type="file" accept=".csv" style={{ display:'none' }}
+        onChange={e => handleFile(e.target.files[0])} />
+    </div>
+  );
+}
+
+/* ── App ── */
+function App() {
+  const [csvHeaders, setCsvHeaders] = useState([]);
+  const [csvSep,     setCsvSep]     = useState(';');
+  const [arrangements, setArrangements] = useState([]);
+  const [blocks,     setBlocks]     = useState([]);
+  const [hover,      setHover]      = useState(null); // '2'|'4'
+  const [dirHandle,  setDirHandle]  = useState(null);
+  const [activeMonth, setActiveMonth] = useState(null);
+  const layoutRef = React.useRef(null);
+
+  const pickFolder = async () => {
+    if (!window.showDirectoryPicker) { alert('Nettleseren støtter ikke mappevelger (bruk Chrome/Edge).'); return; }
+    try { setDirHandle(await window.showDirectoryPicker({ mode: 'readwrite' })); }
+    catch (e) { if (e.name !== 'AbortError') console.error(e); }
+  };
+
+  /* Remaining queue — preserves original order */
+  const assignedIds = useMemo(() =>
+    new Set(blocks.flatMap(b => b.items.map(a => a['ID'] || a['Tittel']))), [blocks]);
+  const remaining = useMemo(() =>
+    arrangements.filter(a => !assignedIds.has(a['ID'] || a['Tittel'])), [arrangements, assignedIds]);
+
+  /* Stats */
+  const blocks1x = useMemo(() => blocks.filter(b => b.type === '1x'), [blocks]);
+  const blocks4  = useMemo(() => blocks.filter(b => b.type === '2x'), [blocks]);
+
+  /* Unique months in block order */
+  const allMonths = useMemo(() => {
+    const seen = new Set(); const out = [];
+    blocks.forEach(b => { const m = getMonth(b.items[0]?.['Dato']); if (m && !seen.has(m)) { seen.add(m); out.push(m); } });
+    return out;
+  }, [blocks]);
+
+  /* Scroll-spy: track topmost visible data-month block */
+  React.useEffect(() => {
+    const container = layoutRef.current;
+    if (!container) return;
+    const update = () => {
+      const cRect = container.getBoundingClientRect();
+      let best = null;
+      container.querySelectorAll('[data-month]').forEach(el => {
+        const r = el.getBoundingClientRect();
+        if (r.bottom > cRect.top && r.top < cRect.bottom)
+          if (!best || r.top < best.top) best = { top: r.top, month: el.dataset.month };
+      });
+      if (best) setActiveMonth(best.month);
+    };
+    container.addEventListener('scroll', update, { passive: true });
+    update();
+    return () => container.removeEventListener('scroll', update);
+  }, [blocks]);
+
+  const scrollToMonth = (month) => {
+    const container = layoutRef.current;
+    if (!container) return;
+    const el = container.querySelector(`[data-month="${month}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const handleLoad = useCallback(({ headers, rows, sep }) => {
+    setCsvHeaders(headers); setCsvSep(sep || ';'); setArrangements(rows); setBlocks([]);
+  }, []);
+
+  /* Sort blocks by the original CSV position of each block's first item */
+  const byOriginalOrder = (allBlocks) =>
+    [...allBlocks].sort((a, b) =>
+      arrangements.indexOf(a.items[0]) - arrangements.indexOf(b.items[0])
+    );
+
+  const addBlock = (type) => {
+    if (remaining.length === 0) return;
+    const n = type === '1x' ? 1 : 2;
+    const newBlock = { type, items: remaining.slice(0, n) };
+    setBlocks(prev => byOriginalOrder([...prev, newBlock]));
+  };
+
+  const removeBlock = (idx) => setBlocks(prev => prev.filter((_, i) => i !== idx));
+
+  /* Assign all remaining: alternate 1x (1 item) → 2x (2 items) → 1x … */
+  const assignAll = () => {
+    if (remaining.length === 0) return;
+    const newBlocks = [];
+    let i = 0, turn = 0;
+    while (i < remaining.length) {
+      const type = turn % 2 === 0 ? '1x' : '2x';
+      const n    = type === '1x' ? 1 : 2;
+      newBlocks.push({ type, items: remaining.slice(i, i + n) });
+      i += n; turn++;
+    }
+    setBlocks(prev => byOriginalOrder([...prev, ...newBlocks]));
+  };
+
+  /* Export Halvside 1x — each block → 1 row, original headers */
+  const exportSingles = async () => {
+    if (!blocks1x.length) { alert('Ingen Halvside 1x-oppslag valgt.'); return; }
+    const rows = blocks1x.map(b => b.items[0]);
+    await download('halvside-1x.csv', buildCSV(csvHeaders, rows, csvSep), dirHandle);
+  };
+
+  /* Export Halvside 2x — each block → 1 row with Tittel1/Tittel2, … */
+  const export4er = async () => {
+    if (!blocks4.length) { alert('Ingen Halvside 2x-oppslag valgt.'); return; }
+    const mh = [1, 2].flatMap(n => csvHeaders.map(h => `${h}${n}`));
+    const rows = blocks4.map(b => {
+      const obj = {};
+      [0, 1].forEach(i => csvHeaders.forEach(h => { obj[`${h}${i+1}`] = b.items[i]?.[h] ?? ''; }));
+      return obj;
+    });
+    await download('halvside-2x.csv', buildCSV(mh, rows, csvSep), dirHandle);
+  };
+
+  /* Export all — both files */
+  const exportAll = async () => {
+    if (!blocks1x.length && !blocks4.length) { alert('Ingenting å eksportere ennå.'); return; }
+    if (blocks1x.length) await exportSingles();
+    if (blocks4.length)  await export4er();
+  };
+
+  /* Queue hover highlight class */
+  const hlCls = (idx) => {
+    if (hover === '2') return idx === 0 ? 'q-hl-2-0' : '';
+    if (hover === '4') return idx === 0 ? 'q-hl-4-0' : idx === 1 ? 'q-hl-4-1' : '';
+    return '';
+  };
+
+  const done = remaining.length === 0 && arrangements.length > 0;
+  const pct  = arrangements.length ? (arrangements.length - remaining.length) / arrangements.length : 0;
+
+  if (!arrangements.length) return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100vh' }}>
+      <header><span className="logo">Print Planner <span>Festiviteten</span></span></header>
+      <Uploader onLoad={handleLoad} />
+    </div>
+  );
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100vh' }}>
+      <header>
+        <span className="logo">Print Planner <span>Festiviteten</span></span>
+        <div className="spacer" />
+        <div className="pill">
+          {arrangements.length - remaining.length} / {arrangements.length} arrangement
+        </div>
+        <div className="pill pill-h"><strong>{blocks1x.length}</strong> halvside 1x</div>
+        <div className="pill pill-p"><strong>{blocks4.length}</strong> halvside 2x</div>
+        <button className="btn btn-ghost" onClick={pickFolder} title={dirHandle ? dirHandle.name : 'Velg hvilken mappe CSV-filer lagres i'}>
+          {dirHandle ? `📁 ${dirHandle.name}` : '📁 Velg mappe'}
+        </button>
+        <button className="btn btn-exp-h" disabled={!blocks1x.length} onClick={exportSingles}>↓ Halvside 1x</button>
+        <button className="btn btn-exp-p" disabled={!blocks4.length} onClick={export4er}>↓ Halvside 2x</button>
+        <button className="btn btn-exp-all" disabled={!blocks1x.length && !blocks4.length} onClick={exportAll}>↓ Export alt</button>
+        <button className="btn btn-ghost" onClick={() => { setArrangements([]); setBlocks([]); }}>Ny fil</button>
+      </header>
+
+      <div className="progress">
+        <div className="progress-fill" style={{ width: `${pct * 100}%` }} />
+      </div>
+
+      <div className="main">
+        {/* Month nav */}
+        {blocks.length > 0 && <MonthNav months={allMonths} active={activeMonth} onMonthClick={scrollToMonth} />}
+
+        {/* Layout preview */}
+        <div className="layout-panel" ref={layoutRef}>
+          <div className="layout-inner">
+            {blocks.length === 0 && !done && (
+              <div className="empty-state">
+                Ingen oppslag lagt til ennå.<br />
+                Bruk knappene til høyre for å begynne.
+              </div>
+            )}
+            {blocks.map((block, i) => (
+              <div key={i} data-month={getMonth(block.items[0]?.['Dato'])}>
+                <Spread block={block} idx={i} onRemove={removeBlock} />
+              </div>
+            ))}
+            {done && (
+              <div className="done-banner">
+                <h3>Alle {arrangements.length} arrangement tilordnet ✓</h3>
+                <p>Bruk Export-knappene øverst for å laste ned CSV-filene.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Queue */}
+        <div className="queue-panel">
+          <div className="q-hdr">Kø <span className="q-badge">{remaining.length}</span></div>
+          <div className="q-list">
+            {remaining.length === 0
+              ? <div style={{ padding:'20px 8px', textAlign:'center', color:'var(--text3)', fontSize:12 }}>Alle tilordnet</div>
+              : remaining.map((arr, i) => (
+                  <QItem key={arr['ID'] || i} arr={arr} idx={i} hlCls={hlCls(i)} />
+                ))
+            }
+          </div>
+          <div className="q-actions">
+            <div className="q-label">Neste oppslag</div>
+            <div className="q-row">
+              <button className="btn btn-2"
+                disabled={remaining.length === 0}
+                onClick={() => addBlock('1x')}
+                onMouseEnter={() => setHover('2')}
+                onMouseLeave={() => setHover(null)}
+                title="1 arrangement — ett bilde">
+                ▬  Halvside 1x
+              </button>
+            </div>
+            <div className="q-row">
+              <button className="btn btn-4"
+                disabled={remaining.length === 0}
+                onClick={() => addBlock('2x')}
+                onMouseEnter={() => setHover('4')}
+                onMouseLeave={() => setHover(null)}
+                title="2 arrangement — to bilder under hverandre">
+                ▬ ▬  Halvside 2x
+              </button>
+            </div>
+            <div className="q-row">
+              <button className="btn btn-assign-all"
+                style={{ width:'100%', justifyContent:'center' }}
+                disabled={remaining.length === 0}
+                onClick={assignAll}
+                title="Tilordne alle gjenstående, annenhver 1x og 2x">
+                ⚡ Tilordne alle
+              </button>
+            </div>
+            <div className="q-row" style={{ marginTop: 2 }}>
+              <button className="btn btn-ghost"
+                style={{ width:'100%', justifyContent:'center' }}
+                disabled={blocks.length === 0}
+                onClick={() => setBlocks(prev => prev.slice(0, -1))}>
+                ↩ Angre siste
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
